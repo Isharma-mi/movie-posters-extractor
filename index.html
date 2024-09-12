@@ -2,18 +2,25 @@
 <!DOCTYPE html>
 <html lang = "en">
     <head>
-        <title>Movie Poster Finder</title>
+        <title>Movie Poster Extractor</title>
     </head>
     
     <body>
-        <!--TODO: Put a header/paragraph explaining what to do-->
-        <!--TODO: Put a button to select a file-->
-        <!-- Download images in computer-->
+        <div id="container">
+            <h1> Movie Poster Extractor </h1>
+            <p> Please select a csv file containing your movie names. </p>
+            <div class="buttons">
+                <!-- Button to pass csv file thru-->
+                <input type="file" id="fileName" accept=".csv">
+                <!-- Button to begin getting images-->
+                <button id="submitBtn">Submit</button>
+            </div>
+            <!-- Outputs the results of each movie-->
+            <h2>Results:</h2>
+            <div id="results"> </div>
+        </div>
 
-        <!--Creates button to pass in the csv file to-->
-        <input type="file" id="fileName" accept=".csv">
-        <button id="submitBtn">Submit</button>
-        <a> Test </a>
+        <link rel="stylesheet" href="styles.css">
         <script src="key.js"></script>
         <script src="script.js"></script>
     </body>
