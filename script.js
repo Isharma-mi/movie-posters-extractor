@@ -47,7 +47,11 @@ async function readFile() {
 
     return new Promise((resolve, reject) => {
         const reader= new FileReader();
+        // When file is read successfully -> Resolves promise
+            // Returns content of file w/o line endings of windows/mac
         reader.onload = () => resolve(reader.result.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split(/[,\n]/));
+        // When file is NOT read -> Rejects promise
+            // Returns error
         reader.onerror = () => reject(reader.error);
 
         reader.readAsText(file);
@@ -61,26 +65,27 @@ async function readFile() {
  */
 async function getPosterURLs(movies) {
     return new Promise(async (resolve) => {
+        // Used for naming posters
         let tracker = 1;
         
         // Loops thru each movie from array
         for (const movie of movies) {
-            // Skips any blank strings from csv file
-            if (movie == "") {
-                continue;
-            }
-
             // Creates the URL for the movie
             let url = `http://www.omdbapi.com/?t=${movie}&apikey=${apiKey}`;
-                
-            // Ensures that posters are added in the correct order
+            
+            // Makes http request returning Promise that resolves to Response obj
             await fetch(url)
+                // Returns Promise resolving to JSON data from Response obj
                 .then(resp => resp.json())
+                // Deals with the JSON data
                 .then(data => {
                     // Adds the poster to the zipped folder
                     addImageToZip(data.Poster, `${tracker++}_${movie}_poster.jpg`);
+                    
                     // Updates html to show poster was downloaded for specific movie
-                    results.innerHTML += `Downloaded poster for ${movie}<br>`;
+                    if (movie !== "") {
+                        results.innerHTML += `Downloaded poster for ${movie}<br>`;
+                    }
                 })
             }
         resolve();
@@ -91,15 +96,23 @@ async function getPosterURLs(movies) {
  * Generates the zip file.
  */
 async function generateZipFile() {
+    // Gens zip file as a blob (Binary file that browser understands)
     const zipBlob = await zip.generateAsync({type: "blob"});
     
-    // Creates element that will auto'ly download the zip
+    // Creates hyperlink element
     const link = document.createElement("a");
+    // Assigns href to url refering to zipBlob
     link.href= URL.createObjectURL(zipBlob);
+    // Adds link to body (Req'd by some browsers)
+    document.body.appendChild(link);
+    // Sets title of file that is downloaded
     link.download = "posters.zip";
+    // Auto'ly clicks link for user
     link.click();
+    // Removes link from body (Req'd by some browsers)
+    document.body.removeChild(link);
 
-    // Cleans up element
+    // Removes link from memory
     URL.revokeObjectURL(link.href);
 }
 
