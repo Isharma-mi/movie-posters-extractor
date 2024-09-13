@@ -1,3 +1,4 @@
+// TODO: Prevent nothing from being submited
 import { apiKey } from "./module.js";
 
 // Gets ref to submit button
@@ -12,19 +13,25 @@ const zip = new JSZip();
 async function main() {
     // Array that will store movies from csv file
     let movies = [];
+    let wasFileRead = false;
 
     // Tries to read the given csv file
     try {
         movies = await readFile();
+        wasFileRead = true;
+        results.innerHTML = "";
     } catch (error) {
+        results.innerHTML = "ERROR: Unable to read file";
         console.log("ERROR: Unable to read file", error);
     }
 
-    // Gets the poster urls
-    await getPosterURLs(movies);
+    if (wasFileRead) {
+        // Gets the poster urls
+        await getPosterURLs(movies);
     
-    // Generates the zip file
-    await generateZipFile();
+        // Generates the zip file
+        await generateZipFile();
+    }
 }
 
 /**
@@ -33,6 +40,10 @@ async function main() {
  */
 async function readFile() {
     const file = fileName.files[0];
+
+    if (!file) {
+        throw Error;
+    }
 
     return new Promise((resolve, reject) => {
         const reader= new FileReader();
