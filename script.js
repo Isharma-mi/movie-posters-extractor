@@ -1,104 +1,106 @@
+import { apiKey } from "./module.js";
+
 // Gets ref to submit button
 let submitBtn = document.getElementById("submitBtn");
 // Gets ref to csv file selected by user
 let fileName = document.getElementById("fileName");
 // Gets ref to results section
 let results = document.getElementById("results");
+// Creates JSZip instance
+const zip = new JSZip();
+
+async function main() {
+    // Array that will store movies from csv file
+    let movies = [];
+
+    // Tries to read the given csv file
+    try {
+        movies = await readFile();
+    } catch (error) {
+        console.log("ERROR: Unable to read file", error);
+    }
+
+    // Gets the poster urls
+    await getPosterURLs(movies);
+    
+    // Generates the zip file
+    await generateZipFile();
+}
 
 /**
- * Reads the .csv file
+ * Reads the csv file.
+ * @returns Promise ensures file is read  before continuing on
  */
-function readCSV() {
-    // Gets the file
+async function readFile() {
     const file = fileName.files[0];
 
-    // Ensures file was selected
-    if (file) {
-        // Handles file reading asynchronously
-        const reader = new FileReader();
+    return new Promise((resolve, reject) => {
+        const reader= new FileReader();
+        reader.onload = () => resolve(reader.result.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split(/[,\n]/));
+        reader.onerror = () => reject(reader.error);
 
-        // Process file contents once reading is completed
-        // Put first to ensure that handler in place once file is read
-        reader.onload = function(event) {
-            // event.target is the reader instance 
-            // result is the file's content as a String
-            const csvText = event.target.result;
-            // Deals with the files content as a String
-            parseCSV(csvText);
-        }
-        
-        // Reads the file as a text string -> Calls onload
         reader.readAsText(file);
-    } else {
-        console.log("No file selected!");
-    }
+    })
 }
 
 /**
- * Modifies data for easier reading 
- * @param {String} csvText - Text from the csv file
+ * Gets the poster urls from the list of movies.
+ * @param {array} movies list of movies
+ * @returns Promise ensures urls are recieved before continuing on
  */
-function parseCSV(csvText) {
-    /* Array consiting of each separeted row with line endings for windows/mac removed
-        - Delimiters (/.../): Define regex pattern
-        - \r\n: carriage return and new line
-        - \g: global search -> Looks across entirety of string
-    */
-    const movies = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split(/[,\n]/);
-    // Tracker is used as prefix for file name
-    let tracker = 1;
+async function getPosterURLs(movies) {
+    return new Promise(async (resolve) => {
+        let tracker = 1;
+        
+        // Loops thru each movie from array
+        for (const movie of movies) {
+            // Skips any blank strings from csv file
+            if (movie == "") {
+                continue;
+            }
 
-    // Loops thru each movie
-    for (const movie of movies) {
-        // Gets the poster
-         getMoviePoster(movie, tracker);
-        // Increments tracker
-        tracker++;
-    }
-}
-
-/**
- * Gets the poster for a specific movie. 
- * Async to update results in order of movies.
- * @param {String} movie - Name of the movie
- * @param {String} filePrefix - Prefix for poster file name
- */
-async function getMoviePoster(movie, filePrefix) {
-    let url = `http://www.omdbapi.com/?t=${movie}&apikey=${key}`;
-    
-    // Gets the data related to the movie
-    fetch(url)
-        .then(resp => resp.json())
-        .then(data => {
-            // Gets the data in binary format and to deal with cross-origin requests
-                // Poster url domain is different from OMDb API
-             fetch(data.Poster)
-                .then(resp => resp.blob())
-                .then(blob => {
-                    const url = window.URL.createObjectURL(blob);
-                    // Creates element used to download image
-                    const posterLink = document.createElement('a');
-                    // Sets element's link equal to the url
-                    posterLink.href = url;
-                    // Sets the name of the file downloaded
-                    posterLink.download = `${filePrefix}_${movie}_Poster`;
-                    // Adds posterLink element to html
-                    document.body.appendChild(posterLink);
-                    // Clicks element to download image
-                    posterLink.click();
-                    // Removes posterLink element from HTMl
-                    document.body.removeChild(posterLink);
-                    // Updates html to show poster downloaded
-                    results.innerHTML += `Downloaded poster for ${data.Title}<br>`;
-                }).catch(() => {
-                    // Filters out any errors server side
-                    if (!movie === "undefined") {
-                        results.innerHTML += `ERROR: Unable to download poster for ${movie}<br>`;    
-                    }
-                });
-        }).catch (() => {
-            console.log(`ERROR: Unable to fetch ${movie}`);
+            // Creates the URL for the movie
+            let url = `http://www.omdbapi.com/?t=${movie}&apikey=${apiKey}`;
+                
+            // Ensures that posters are added in the correct order
+            await fetch(url)
+                .then(resp => resp.json())
+                .then(data => {
+                    // Adds the poster to the zipped folder
+                    addImageToZip(data.Poster, `${tracker++}_${movie}_poster.jpg`);
+                    // Updates html to show poster was downloaded for specific movie
+                    results.innerHTML += `Downloaded poster for ${movie}<br>`;
+                })
+            }
+        resolve();
         });
 }
 
-submitBtn.addEventListener("click", readCSV);
+/**
+ * Generates the zip file.
+ */
+async function generateZipFile() {
+    const zipBlob = await zip.generateAsync({type: "blob"});
+    
+    // Creates element that will auto'ly download the zip
+    const link = document.createElement("a");
+    link.href= URL.createObjectURL(zipBlob);
+    link.download = "posters.zip";
+    link.click();
+
+    // Cleans up element
+    URL.revokeObjectURL(link.href);
+}
+
+/**
+ * Adds an image to the zip folder
+ * @param {String} url URL of the movie poster
+ * @param {String} fileName Name of the image file that will be zipped
+ */
+async function addImageToZip(url, fileName) {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    zip.file(fileName, blob);
+}
+
+submitBtn.addEventListener("click", main);
